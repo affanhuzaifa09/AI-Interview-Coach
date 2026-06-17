@@ -1,0 +1,20 @@
+# Virtual environment - very large, no need to upload
+venv/
+
+# API keys - NEVER push this to GitHub
+.env
+
+# Python cache files - auto-generated, not needed
+__pycache__/
+*.pyc
+*.pyo
+
+# FAISS vector store - large binary files
+vectorstore/
+
+# Uploaded user files
+data/resumes/
+data/notes/
+
+# VS Code settings
+.vscode/
