@@ -6,6 +6,7 @@ from modules.question_generator import generate_questions
 from modules.mock_interview import start_interview, chat, build_chat_history
 from modules.evaluator import evaluate_answer
 from modules.resume_analyzer import analyze_resume
+from modules.rag_engine import process_uploaded_pdf, answer_question
 from utils.pdf_loader import extract_text_from_pdf, get_pdf_info
 
 # --- PAGE CONFIGURATION ---
@@ -307,7 +308,6 @@ elif module == "📄 Resume Analyzer":
     st.markdown("Upload your resume and get personalized interview questions.")
     st.markdown("---")
 
-    # Job role selection
     resume_role = st.selectbox(
         "👔 Target Job Role",
         ["Data Scientist", "Machine Learning Engineer", "Data Analyst",
@@ -317,7 +317,6 @@ elif module == "📄 Resume Analyzer":
 
     st.markdown("---")
 
-    # PDF upload
     uploaded_resume = st.file_uploader(
         "📎 Upload Your Resume (PDF only)",
         type=["pdf"]
@@ -325,7 +324,6 @@ elif module == "📄 Resume Analyzer":
 
     if uploaded_resume is not None:
 
-        # Show PDF info
         pdf_info = get_pdf_info(uploaded_resume)
         st.info(f"📄 File: **{pdf_info['filename']}** | Pages: **{pdf_info['pages']}**")
 
@@ -334,7 +332,6 @@ elif module == "📄 Resume Analyzer":
         if st.button("🔍 Analyze Resume", use_container_width=True):
 
             with st.spinner("Reading your resume..."):
-                # Extract text from PDF
                 resume_text = extract_text_from_pdf(uploaded_resume)
 
             if "Error" in resume_text or "Could not extract" in resume_text:
@@ -350,7 +347,6 @@ elif module == "📄 Resume Analyzer":
                         st.success("✅ Resume Analyzed Successfully!")
                         st.markdown("---")
 
-                        # Skills and Technologies side by side
                         col1, col2 = st.columns(2)
 
                         with col1:
@@ -361,19 +357,14 @@ elif module == "📄 Resume Analyzer":
                             st.markdown("## ⚙️ Technologies Used")
                             st.info(result['technologies'])
 
-                        # Projects
                         st.markdown("## 📁 Projects")
                         st.markdown(result['projects'])
-
                         st.markdown("---")
 
-                        # Personalized questions - the star of this module
                         st.markdown("## 🎯 Personalized Interview Questions")
                         st.warning(result['questions'])
-
                         st.markdown("---")
 
-                        # Resume feedback
                         col1, col2 = st.columns(2)
 
                         with col1:
@@ -388,3 +379,88 @@ elif module == "📄 Resume Analyzer":
                         st.error(f"❌ Error: {str(e)}")
     else:
         st.info("👆 Please upload your resume PDF to get started.")
+
+# ============================================================
+# MODULE 5: RAG KNOWLEDGE BASE
+# ============================================================
+elif module == "📚 RAG Knowledge Base":
+
+    st.title("📚 RAG Knowledge Base")
+    st.markdown("Upload study material and ask questions — AI answers from your document.")
+    st.markdown("---")
+
+    # Initialize session state for RAG
+    if "vectorstore" not in st.session_state:
+        st.session_state.vectorstore = None
+    if "rag_ready" not in st.session_state:
+        st.session_state.rag_ready = False
+    if "rag_filename" not in st.session_state:
+        st.session_state.rag_filename = ""
+
+    # --- UPLOAD SECTION ---
+    uploaded_notes = st.file_uploader(
+        "📎 Upload Study Material (PDF only)",
+        type=["pdf"]
+    )
+
+    if uploaded_notes is not None:
+
+        if st.button("⚙️ Process Document", use_container_width=True):
+
+            with st.spinner("Reading and chunking document..."):
+                try:
+                    vectorstore, chunk_count = process_uploaded_pdf(uploaded_notes)
+                    st.session_state.vectorstore = vectorstore
+                    st.session_state.rag_ready = True
+                    st.session_state.rag_filename = uploaded_notes.name
+                    st.success(f"✅ Document processed! Created {chunk_count} chunks.")
+
+                except Exception as e:
+                    st.error(f"❌ Error processing document: {str(e)}")
+
+    # --- Q&A SECTION ---
+    if st.session_state.rag_ready:
+
+        st.markdown("---")
+        st.info(f"📄 Active document: **{st.session_state.rag_filename}**")
+        st.markdown("### 💬 Ask Questions About Your Study Material")
+
+        user_question = st.text_input(
+            "Your Question",
+            placeholder="e.g. What is gradient descent? Explain backpropagation."
+        )
+
+        if st.button("🔍 Get Answer", use_container_width=True):
+
+            if not user_question.strip():
+                st.warning("⚠️ Please enter a question.")
+            else:
+                with st.spinner("Searching document and generating answer..."):
+                    try:
+                        result = answer_question(
+                            vectorstore=st.session_state.vectorstore,
+                            question=user_question
+                        )
+
+                        st.markdown("---")
+                        st.markdown("## 💡 Answer")
+                        st.markdown(result['answer'])
+
+                        # Show retrieved context
+                        with st.expander("📄 View Retrieved Context from Document"):
+                            st.markdown(result['context'])
+
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
+
+        # Reset button
+        st.markdown("---")
+        if st.button("🔄 Upload New Document", use_container_width=True):
+            st.session_state.vectorstore = None
+            st.session_state.rag_ready = False
+            st.session_state.rag_filename = ""
+            st.rerun()
+
+    else:
+        if uploaded_notes is None:
+            st.info("👆 Upload a PDF study material to get started.")
