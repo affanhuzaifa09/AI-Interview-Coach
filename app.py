@@ -5,6 +5,8 @@ import streamlit as st
 from modules.question_generator import generate_questions
 from modules.mock_interview import start_interview, chat, build_chat_history
 from modules.evaluator import evaluate_answer
+from modules.resume_analyzer import analyze_resume
+from utils.pdf_loader import extract_text_from_pdf, get_pdf_info
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -239,14 +241,12 @@ elif module == "📊 Answer Evaluator":
 
     st.markdown("---")
 
-    # Question input
     eval_question = st.text_area(
         "📌 Enter the Interview Question",
         placeholder="e.g. What is the difference between supervised and unsupervised learning?",
         height=100
     )
 
-    # Answer input
     eval_answer = st.text_area(
         "✍️ Enter Your Answer",
         placeholder="Type your answer here...",
@@ -256,7 +256,6 @@ elif module == "📊 Answer Evaluator":
     st.markdown("---")
 
     if st.button("🔍 Evaluate My Answer", use_container_width=True):
-
         if not eval_question.strip():
             st.warning("⚠️ Please enter a question.")
         elif not eval_answer.strip():
@@ -274,11 +273,9 @@ elif module == "📊 Answer Evaluator":
                     st.success("✅ Evaluation Complete!")
                     st.markdown("---")
 
-                    # Score - displayed prominently
                     st.markdown("## 📊 Score")
                     st.info(f"### {result['score']}")
 
-                    # Two columns for strengths and weaknesses
                     col1, col2 = st.columns(2)
 
                     with col1:
@@ -289,17 +286,105 @@ elif module == "📊 Answer Evaluator":
                         st.markdown("## ❌ Weaknesses")
                         st.error(result['weaknesses'])
 
-                    # Missing concepts
                     st.markdown("## 🔍 Missing Concepts")
                     st.warning(result['missing_concepts'])
 
-                    # Ideal answer
                     st.markdown("## 💡 Ideal Answer")
                     st.markdown(result['ideal_answer'])
 
-                    # Follow up question
                     st.markdown("## ❓ Follow-up Question")
                     st.info(result['follow_up'])
 
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
+
+# ============================================================
+# MODULE 4: RESUME ANALYZER
+# ============================================================
+elif module == "📄 Resume Analyzer":
+
+    st.title("📄 Resume Analyzer")
+    st.markdown("Upload your resume and get personalized interview questions.")
+    st.markdown("---")
+
+    # Job role selection
+    resume_role = st.selectbox(
+        "👔 Target Job Role",
+        ["Data Scientist", "Machine Learning Engineer", "Data Analyst",
+         "Backend Developer", "AI Engineer", "GenAI Developer",
+         "Data Engineer", "Full Stack Developer", "Software Engineer"]
+    )
+
+    st.markdown("---")
+
+    # PDF upload
+    uploaded_resume = st.file_uploader(
+        "📎 Upload Your Resume (PDF only)",
+        type=["pdf"]
+    )
+
+    if uploaded_resume is not None:
+
+        # Show PDF info
+        pdf_info = get_pdf_info(uploaded_resume)
+        st.info(f"📄 File: **{pdf_info['filename']}** | Pages: **{pdf_info['pages']}**")
+
+        st.markdown("---")
+
+        if st.button("🔍 Analyze Resume", use_container_width=True):
+
+            with st.spinner("Reading your resume..."):
+                # Extract text from PDF
+                resume_text = extract_text_from_pdf(uploaded_resume)
+
+            if "Error" in resume_text or "Could not extract" in resume_text:
+                st.error(f"❌ {resume_text}")
+            else:
+                with st.spinner("Analyzing resume and generating questions..."):
+                    try:
+                        result = analyze_resume(
+                            resume_text=resume_text,
+                            job_role=resume_role
+                        )
+
+                        st.success("✅ Resume Analyzed Successfully!")
+                        st.markdown("---")
+
+                        # Skills and Technologies side by side
+                        col1, col2 = st.columns(2)
+
+                        with col1:
+                            st.markdown("## 🛠️ Extracted Skills")
+                            st.success(result['skills'])
+
+                        with col2:
+                            st.markdown("## ⚙️ Technologies Used")
+                            st.info(result['technologies'])
+
+                        # Projects
+                        st.markdown("## 📁 Projects")
+                        st.markdown(result['projects'])
+
+                        st.markdown("---")
+
+                        # Personalized questions - the star of this module
+                        st.markdown("## 🎯 Personalized Interview Questions")
+                        st.warning(result['questions'])
+
+                        st.markdown("---")
+
+                        # Resume feedback
+                        col1, col2 = st.columns(2)
+
+                        with col1:
+                            st.markdown("## ✅ Resume Strengths")
+                            st.success(result['strengths'])
+
+                        with col2:
+                            st.markdown("## 📈 Resume Improvements")
+                            st.error(result['improvements'])
+
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
+    else:
+        st.info("👆 Please upload your resume PDF to get started.")
