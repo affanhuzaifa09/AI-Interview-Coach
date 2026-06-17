@@ -4,6 +4,7 @@
 import streamlit as st
 from modules.question_generator import generate_questions
 from modules.mock_interview import start_interview, chat, build_chat_history
+from modules.evaluator import evaluate_answer
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -12,7 +13,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- SIDEBAR NAVIGATION ---
+# --- SIDEBAR ---
 st.sidebar.title("🎯 AI Interview Coach")
 st.sidebar.markdown("---")
 
@@ -91,7 +92,7 @@ if module == "🧠 Question Generator":
 
     if st.button("🚀 Generate Questions", use_container_width=True):
         if topic is None:
-            st.warning("⚠️ Please select a topic from the dropdown or type your own.")
+            st.warning("⚠️ Please select a topic or type your own.")
         else:
             with st.spinner(f"Generating {difficulty} level {topic} questions..."):
                 try:
@@ -102,7 +103,6 @@ if module == "🧠 Question Generator":
                     st.markdown(questions)
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
-                    st.info("Please check your GROQ_API_KEY in the .env file")
 
 # ============================================================
 # MODULE 2: MOCK INTERVIEW
@@ -113,21 +113,16 @@ elif module == "🎤 Mock Interview":
     st.markdown("Practice a real conversational interview with AI feedback after every answer.")
     st.markdown("---")
 
-    # --- INTERVIEW SETUP (shown only before interview starts) ---
     if "interview_active" not in st.session_state:
         st.session_state.interview_active = False
-
     if "messages" not in st.session_state:
         st.session_state.messages = []
-
     if "interview_config" not in st.session_state:
         st.session_state.interview_config = {}
 
-    # Show setup form only when interview is not active
     if not st.session_state.interview_active:
 
         st.markdown("### ⚙️ Interview Setup")
-
         col1, col2, col3 = st.columns(3)
 
         with col1:
@@ -137,7 +132,6 @@ elif module == "🎤 Mock Interview":
                  "Generative AI", "LangChain", "Data Science", "Statistics",
                  "Computer Vision", "NLP", "FastAPI", "System Design"]
             )
-
         with col2:
             mock_role = st.selectbox(
                 "👔 Role",
@@ -145,7 +139,6 @@ elif module == "🎤 Mock Interview":
                  "Backend Developer", "AI Engineer", "GenAI Developer",
                  "Data Engineer", "Software Engineer"]
             )
-
         with col3:
             mock_difficulty = st.selectbox(
                 "⚡ Difficulty",
@@ -155,15 +148,11 @@ elif module == "🎤 Mock Interview":
         st.markdown("---")
 
         if st.button("🚀 Start Interview", use_container_width=True):
-
-            # Save interview config to session state
             st.session_state.interview_config = {
                 "topic": mock_topic,
                 "role": mock_role,
                 "difficulty": mock_difficulty
             }
-
-            # Get opening message from AI
             with st.spinner("Starting your interview..."):
                 try:
                     opening = start_interview(
@@ -172,27 +161,19 @@ elif module == "🎤 Mock Interview":
                         difficulty=mock_difficulty,
                         chat_history=[]
                     )
-
-                    # Save AI opening message to history
                     st.session_state.messages = [
                         {"role": "assistant", "content": opening}
                     ]
-
-                    # Mark interview as active
                     st.session_state.interview_active = True
                     st.rerun()
-
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
 
-    # --- ACTIVE INTERVIEW (shown when interview is running) ---
     else:
-
         config = st.session_state.interview_config
         st.markdown(f"**Topic:** {config['topic']} | **Role:** {config['role']} | **Difficulty:** {config['difficulty']}")
         st.markdown("---")
 
-        # Display full conversation history
         for message in st.session_state.messages:
             if message["role"] == "assistant":
                 with st.chat_message("assistant", avatar="🤖"):
@@ -201,20 +182,13 @@ elif module == "🎤 Mock Interview":
                 with st.chat_message("user", avatar="🧑‍💻"):
                     st.markdown(message["content"])
 
-        # Chat input box at bottom
         user_input = st.chat_input("Type your answer here...")
 
         if user_input:
-
-            # Add user message to history
             st.session_state.messages.append(
                 {"role": "user", "content": user_input}
             )
-
-            # Convert messages to LangChain format for memory
             chat_history = build_chat_history(st.session_state.messages[:-1])
-
-            # Get AI response
             with st.spinner("Thinking..."):
                 try:
                     response = chat(
@@ -224,21 +198,108 @@ elif module == "🎤 Mock Interview":
                         difficulty=config["difficulty"],
                         chat_history=chat_history
                     )
-
-                    # Add AI response to history
                     st.session_state.messages.append(
                         {"role": "assistant", "content": response}
                     )
-
                     st.rerun()
-
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
 
-        # End interview button
         st.markdown("---")
         if st.button("🔴 End Interview", use_container_width=True):
             st.session_state.interview_active = False
             st.session_state.messages = []
             st.session_state.interview_config = {}
             st.rerun()
+
+# ============================================================
+# MODULE 3: ANSWER EVALUATOR
+# ============================================================
+elif module == "📊 Answer Evaluator":
+
+    st.title("📊 Answer Evaluator")
+    st.markdown("Get detailed AI feedback on your interview answers.")
+    st.markdown("---")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        eval_role = st.selectbox(
+            "👔 Role",
+            ["Data Scientist", "Machine Learning Engineer", "Data Analyst",
+             "Backend Developer", "AI Engineer", "GenAI Developer",
+             "Data Engineer", "Software Engineer"]
+        )
+
+    with col2:
+        eval_difficulty = st.selectbox(
+            "⚡ Difficulty",
+            ["Easy", "Medium", "Hard"]
+        )
+
+    st.markdown("---")
+
+    # Question input
+    eval_question = st.text_area(
+        "📌 Enter the Interview Question",
+        placeholder="e.g. What is the difference between supervised and unsupervised learning?",
+        height=100
+    )
+
+    # Answer input
+    eval_answer = st.text_area(
+        "✍️ Enter Your Answer",
+        placeholder="Type your answer here...",
+        height=200
+    )
+
+    st.markdown("---")
+
+    if st.button("🔍 Evaluate My Answer", use_container_width=True):
+
+        if not eval_question.strip():
+            st.warning("⚠️ Please enter a question.")
+        elif not eval_answer.strip():
+            st.warning("⚠️ Please enter your answer.")
+        else:
+            with st.spinner("Evaluating your answer..."):
+                try:
+                    result = evaluate_answer(
+                        question=eval_question,
+                        user_answer=eval_answer,
+                        role=eval_role,
+                        difficulty=eval_difficulty
+                    )
+
+                    st.success("✅ Evaluation Complete!")
+                    st.markdown("---")
+
+                    # Score - displayed prominently
+                    st.markdown("## 📊 Score")
+                    st.info(f"### {result['score']}")
+
+                    # Two columns for strengths and weaknesses
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        st.markdown("## ✅ Strengths")
+                        st.success(result['strengths'])
+
+                    with col2:
+                        st.markdown("## ❌ Weaknesses")
+                        st.error(result['weaknesses'])
+
+                    # Missing concepts
+                    st.markdown("## 🔍 Missing Concepts")
+                    st.warning(result['missing_concepts'])
+
+                    # Ideal answer
+                    st.markdown("## 💡 Ideal Answer")
+                    st.markdown(result['ideal_answer'])
+
+                    # Follow up question
+                    st.markdown("## ❓ Follow-up Question")
+                    st.info(result['follow_up'])
+
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
