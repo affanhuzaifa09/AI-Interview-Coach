@@ -18,3 +18,5 @@ data/notes/
 
 # VS Code settings
 .vscode/
+
+.streamlit/secrets.toml
