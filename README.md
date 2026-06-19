@@ -54,31 +54,57 @@ An AI-powered interview preparation assistant built with LangChain, Groq (Llama 
 ## 📁 Project Structure
 AI-Interview-Coach/
 │
+
 ├── app.py                          # Main Streamlit application
+
 │
+
 ├── modules/
+
 │   ├── question_generator.py       # Module 1: Question generation
+
 │   ├── mock_interview.py           # Module 2: Mock interview logic
+
 │   ├── evaluator.py                # Module 3: Answer evaluation
+
 │   ├── resume_analyzer.py          # Module 4: Resume analysis
+
 │   └── rag_engine.py               # Module 5: RAG pipeline
+
 │
+
 ├── prompts/
+
 │   ├── question_prompt.py          # Prompt for question generation
+
 │   ├── evaluation_prompt.py        # Prompt for answer evaluation
+
 │   └── interview_prompt.py         # Prompt for mock interview
+
 │
+
 ├── utils/
+
 │   ├── pdf_loader.py               # PDF text extraction
+
 │   └── embeddings.py               # Embedding model setup
+
 │
+
 ├── data/
+
 │   ├── resumes/                    # Resume uploads
+
 │   └── notes/                      # Study material uploads
+
 │
+
 ├── vectorstore/                    # FAISS index storage
+
 ├── requirements.txt
+
 ├── .env
+
 └── .gitignore
 
 ---
